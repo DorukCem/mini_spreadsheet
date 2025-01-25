@@ -1,6 +1,6 @@
-use macroquad::prelude::*;
 use macroquad::ui::widgets::InputText;
 use macroquad::ui::{hash, root_ui, Skin};
+use macroquad::{prelude::*, text};
 
 use crate::common_types::{ComputeError, Value};
 use crate::{common_types::Index, spreadsheet::SpreadSheet};
@@ -50,13 +50,9 @@ pub struct GUI {
 
 impl GUI {
     pub async fn new(spread_sheet: SpreadSheet) -> Self {
-        let regular_font = load_ttf_font("fonts/ttf/Hack-Regular.ttf")
-            .await
-            .unwrap();
+        let regular_font = load_ttf_font("fonts/ttf/Hack-Regular.ttf").await.unwrap();
 
-        let bold_font = load_ttf_font("fonts/ttf/Hack-Bold.ttf")
-            .await
-            .unwrap();
+        let bold_font = load_ttf_font("fonts/ttf/Hack-Bold.ttf").await.unwrap();
 
         // Create a minimal style for the editor
         let editor_skin = {
@@ -166,7 +162,9 @@ impl GUI {
 
             if is_mouse_button_pressed(MouseButton::Left) {
                 if is_key_down(KeyCode::LeftControl) {
-                    if self.selected_cell.is_some() && &Some('=') == &self.editor_content.chars().nth(0) {
+                    if self.selected_cell.is_some()
+                        && &Some('=') == &self.editor_content.chars().nth(0)
+                    {
                         self.editor_content.push_str(&format!(
                             "{}{}",
                             column_idx_to_string(x_idx),
@@ -192,7 +190,7 @@ impl GUI {
         for col in 0..GRID_COLS {
             let label_start_x = start_x + col as f32 * cell_width + ROW_LABEL_WIDTH;
             let label_start_y = start_y;
-            self.draw_label(
+            self.draw_error_label(
                 col,
                 false, // Indicating column
                 (label_start_x, label_start_y),
@@ -204,7 +202,7 @@ impl GUI {
         for row in 0..GRID_ROWS {
             let label_start_x = start_x;
             let label_start_y = start_y + row as f32 * cell_height + COL_LABEL_HEIGHT;
-            self.draw_label(
+            self.draw_error_label(
                 row,
                 true, // Indicating row
                 (label_start_x, label_start_y),
@@ -238,7 +236,7 @@ impl GUI {
             let cell_end_x = start_x + idx.x as f32 * cell_width + ROW_LABEL_WIDTH + cell_width;
             let cell_end_y = start_y + idx.y as f32 * cell_height + COL_LABEL_HEIGHT;
             let dialog_pos = (cell_end_x, cell_end_y);
-            self.draw_dialog(idx, dialog_pos);
+            self.draw_dialog(idx, dialog_pos, cell_width, cell_height);
         }
     }
 
@@ -257,8 +255,8 @@ impl GUI {
 
         draw_rectangle_lines(start_x, start_y, width, height, border_width, border_color);
 
-        let text = if Some(index) == self.selected_cell {
-            &self.editor_content
+        let mut text: String = if Some(index) == self.selected_cell {
+            self.editor_content.clone()
         } else {
             let computed = self.spread_sheet.get_computed(index);
             if let Some(Err(_)) = computed {
@@ -271,17 +269,39 @@ impl GUI {
                 );
             }
 
-            &computed_to_text(computed)
+            computed_to_text(computed)
         };
 
         if !text.is_empty() {
-            let text_dimensions = measure_text(text, Some(&self.regular_font), CELL_FONT_SIZE, 1.0);
+            let mut text_dimensions =
+                measure_text(&text, Some(&self.regular_font), CELL_FONT_SIZE, 1.0);
+
+            let mut is_oversize = false;
+            let original = text.clone();
+            if text_dimensions.width > width {
+                is_oversize = true;
+                for _ in 0.."...".len() {
+                    text.pop();
+                }
+                let mut text_width = text_dimensions.width;
+                while text_width > width {
+                    if let None = text.pop() {
+                        break;
+                    }
+                    text_width = measure_text(&text, Some(&self.regular_font), CELL_FONT_SIZE, 1.0)
+                        .width
+                        + measure_text("...", Some(&self.regular_font), CELL_FONT_SIZE, 1.0).width;
+                }
+                text.push_str("...");
+                text_dimensions =
+                    measure_text(&text, Some(&self.regular_font), CELL_FONT_SIZE, 1.0);
+            }
 
             let text_x = center_x - text_dimensions.width / 2.0;
             let text_y = center_y + text_dimensions.height / 2.0; // Adjust y for baseline alignment
 
             draw_text_ex(
-                text,
+                &text,
                 text_x,
                 text_y,
                 TextParams {
@@ -293,10 +313,22 @@ impl GUI {
                     color: CELL_TEXT_COLOR,
                 },
             );
+
+            if is_oversize {
+                if is_point_in_rect(mouse_position(), start, (start.0 + width, start.1 + height)) {
+                    self.draw_oversize_label(original, center_x, center_y)
+                }
+            }
         }
     }
 
-    fn draw_label(&self, idx: usize, is_row: bool, start: (f32, f32), dimensions: (f32, f32)) {
+    fn draw_error_label(
+        &self,
+        idx: usize,
+        is_row: bool,
+        start: (f32, f32),
+        dimensions: (f32, f32),
+    ) {
         let (start_x, start_y) = start;
         let (width, height) = dimensions;
         let center_x = start_x + width / 2.0;
@@ -378,10 +410,10 @@ impl GUI {
         self.selected_cell = Some(idx);
     }
 
-    fn draw_dialog(&self, idx: Index, pos: (f32, f32)) {
+    fn draw_dialog(&self, idx: Index, pos: (f32, f32), cell_width: f32, cell_height: f32) {
         if let Some(err) = self.spread_sheet.get_error(idx) {
-            const DIALOG_WIDTH: f32 = 200.0;
-            const DIALOG_HEIGHT: f32 = 80.0;
+            let dialog_width: f32 = cell_width;
+            let dialog_height: f32 = cell_height * 2.0;
             const DIALOG_FONT_SIZE: u16 = 14;
 
             let (dialog_x, dialog_y) = pos;
@@ -390,11 +422,11 @@ impl GUI {
             draw_rectangle(
                 dialog_x,
                 dialog_y,
-                DIALOG_WIDTH,
-                DIALOG_HEIGHT,
+                dialog_width,
+                dialog_height,
                 GRID_BACKGROUND_COLOR,
             );
-            draw_rectangle_lines(dialog_x, dialog_y, DIALOG_WIDTH, DIALOG_HEIGHT, 4.0, RED);
+            draw_rectangle_lines(dialog_x, dialog_y, dialog_width, dialog_height, 4.0, RED);
 
             // Prepare dialog text
             let dialog_text = format!("Error: {}", err_to_info(err));
@@ -403,18 +435,18 @@ impl GUI {
                 &dialog_text,
                 &self.regular_font,
                 DIALOG_FONT_SIZE,
-                DIALOG_WIDTH - 10.0,
+                dialog_width - 10.0,
             );
 
             // Calculate vertical starting position for centering the text block
             let total_text_height = lines.len() as f32 * (DIALOG_FONT_SIZE as f32 + 4.0); // 4.0 for line spacing
-            let mut text_y = dialog_y + (DIALOG_HEIGHT - total_text_height) / 2.0;
+            let mut text_y = dialog_y + (dialog_height - total_text_height) / 2.0;
 
             // Draw each line of text
             for line in lines {
                 let text_dimensions =
                     measure_text(&line, Some(&self.bold_font), DIALOG_FONT_SIZE, 1.0);
-                let text_x = dialog_x + (DIALOG_WIDTH - text_dimensions.width) / 2.0;
+                let text_x = dialog_x + (dialog_width - text_dimensions.width) / 2.0;
 
                 draw_text_ex(
                     &line,
@@ -433,6 +465,50 @@ impl GUI {
                 text_y += DIALOG_FONT_SIZE as f32 + 4.0; // Move to next line
             }
         }
+    }
+
+    fn draw_oversize_label(&self, original: String, center_x: f32, center_y: f32) {
+        const LINE_SIZE: f32 = 50.0;
+        const LABEL_PADDING: f32 = 20.0;
+
+        let (line_end_x, line_end_y) = match (center_x> screen_width()/2.0 , center_y> screen_height()/2.0){
+            (true, true) => (center_x - LINE_SIZE, center_y - LINE_SIZE),
+            (true, false) =>(center_x - LINE_SIZE, center_y + LINE_SIZE),
+            (false, true) =>(center_x + LINE_SIZE, center_y - LINE_SIZE),
+            (false, false) =>(center_x + LINE_SIZE, center_y + LINE_SIZE),
+        };
+
+        draw_line(center_x, center_y, line_end_x, line_end_y, 2.0, BLACK);
+
+        let text_dimensions =
+            measure_text(&original, Some(&self.regular_font), CELL_FONT_SIZE, 1.0);
+        let (label_width, label_height) = (
+            text_dimensions.width + LABEL_PADDING,
+            text_dimensions.height + LABEL_PADDING,
+        );
+        let label_rect_start_x = line_end_x - label_width / 2.;
+        let label_rect_start_y = line_end_y - label_height / 2.;
+        draw_rectangle(
+            label_rect_start_x,
+            label_rect_start_y,
+            label_width,
+            label_height,
+            BLACK,
+        );
+
+        draw_text_ex(
+            &original,
+            label_rect_start_x + LABEL_PADDING / 2.0,
+            label_rect_start_y + LABEL_PADDING / 2.0 + text_dimensions.height,
+            TextParams {
+                font: Some(&self.regular_font),
+                font_size: CELL_FONT_SIZE,
+                font_scale: 1.0,
+                font_scale_aspect: 1.0,
+                rotation: 0.0,
+                color: WHITE,
+            },
+        );
     }
 }
 
@@ -469,7 +545,7 @@ fn is_point_in_rect<T: std::cmp::PartialOrd>(
    exp_pad controls the amount of left padded 0s
 */
 fn fmt_f64(num: f64, width: usize, precision: usize, exp_pad: usize) -> String {
-    if !num.is_finite(){
+    if !num.is_finite() {
         return num.to_string();
     }
     let mut num = format!("{:.precision$e}", num, precision = precision);
