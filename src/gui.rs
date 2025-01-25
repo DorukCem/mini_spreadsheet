@@ -1,6 +1,6 @@
 use macroquad::ui::widgets::InputText;
 use macroquad::ui::{hash, root_ui, Skin};
-use macroquad::{prelude::*, text};
+use macroquad::prelude::*;
 
 use crate::common_types::{ComputeError, Value};
 use crate::{common_types::Index, spreadsheet::SpreadSheet};
@@ -285,7 +285,7 @@ impl GUI {
                 }
                 let mut text_width = text_dimensions.width;
                 while text_width > width {
-                    if let None = text.pop() {
+                    if text.pop().is_none() {
                         break;
                     }
                     text_width = measure_text(&text, Some(&self.regular_font), CELL_FONT_SIZE, 1.0)
@@ -314,10 +314,8 @@ impl GUI {
                 },
             );
 
-            if is_oversize {
-                if is_point_in_rect(mouse_position(), start, (start.0 + width, start.1 + height)) {
-                    self.draw_oversize_label(original, center_x, center_y)
-                }
+            if is_oversize && is_point_in_rect(mouse_position(), start, (start.0 + width, start.1 + height)) {
+                self.draw_oversize_label(original, center_x, center_y)
             }
         }
     }

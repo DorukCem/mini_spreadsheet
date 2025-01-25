@@ -55,6 +55,7 @@ impl SpreadSheet {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_file_path(input_path: PathBuf) -> Self {
         let mut buffer = String::new();
         let mut f = File::open(input_path).expect("Cannot open file");
