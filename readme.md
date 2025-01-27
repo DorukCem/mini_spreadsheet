@@ -1,64 +1,94 @@
-# How to Use
-## UI
-You can edit cells by clicking on them. To add a reference to another cell (only when writing expressions), such as 'A1', you can click on the cell you want to reference while holding down the Ctrl key. You can hover over any error to see a detailed description. When the contents of the cell does not fit the cell, the content will be truncated, you can see the full contents of the cell by hovering over it.
+# Mini Spreadsheet
 
-## Syntax
+A lightweight spreadsheet application supporting basic calculations, functions, and cell references.
 
-| Type       | Description                                                                                             | Examples                             |
-| ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Text       | Just a human readiable text.                                                                            | `A`, `B`, `C`, etc                   |
-| Number     | Anything that can be parsed as a float                                                                  | `1`, `2.0`, `1e-6`, etc              |
-| Boolean    | TRUE or FALSE                                                                                           | `TRUE`, `FALSE`                      |
-| Expression | Always starts with `=`. Excel style math expression that involves other cells, functions and operations | `=A1+B1`, `=42*2`, `=pow(A1, 2)` etc |
+## Quick Start
 
-### Value Types
-Boolean, number, and text are value types which can be the final value of a cell.
+### Try it online !!
 
-### Expressions
-Expressions evaluate to a value type or an error. Errors may arise from unparsable expressions (such as = 1  2), invalid operations (such as trying to add text to a number), etc. Text literals may be used in expressions using double quotes, such as = "hello" + "world". 
+You can try out Mini Spreadsheet online at: [https://dorukcem.itch.io/mini-spreadsheet](https://dorukcem.itch.io/mini-spreadsheet)
 
-### Ranges
-Range expressions may appear inside of function calls in this `FROM_CELL : TO_CELL` form. They can be used to operate on a range of cells. For example: `=sum(A1:A4)` would sum the first 4 elements of the first column. Range expressions are invalid after a certain size (100 rows and columns for now);
+### Build and run it yourself
 
-### Functions
-Functions perform a single action and evaluate to a result. They may take arguments separated by commas. Some functions may require a specific number of arguments, while others can take any number of arguments (for example, we can say sum(1, 2, A1:C5)). Functions always start with lowercase letters. 
+#### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+- [rustup](https://rustup.rs/)
+
+#### Building from Source
+
+1. Clone the repository.
+2. Follow either the web or desktop build instructions below.
+
+
+#### Web Version
+
+```bash
+# Install dependencies
+cargo install basic-http-server
+rustup target add wasm32-unknown-unknown
+
+# Build and run
+cargo build --release --target wasm32-unknown-unknown
+cp target/wasm32-unknown-unknown/release/mini_spreadsheet.wasm .
+basic-http-server .
+```
+
+#### Desktop Version
+
+```bash
+cargo run
+```
+
+## Usage Guide
+
+### Basic Interface
+
+- **Cell Editing**: Click any cell to edit its contents.
+- **Cell References**: Hold Ctrl and click a cell to reference it in expressions (e.g., `A1`).
+- **Content Overflow**: Hover over truncated cells to view full contents.
+- **Error Handling**: Hover over errors for detailed descriptions.
+
+### Data Types
+
+| Type       | Description                         | Examples                |
+| ---------- | ----------------------------------- | ----------------------- |
+| Text       | Plain text strings                  | `Hello`, `World`        |
+| Number     | Numeric values (integers or floats) | `42`, `3.14`, `1e-6`    |
+| Boolean    | True/false values                   | `TRUE`, `FALSE`         |
+| Expression | Formula starting with `=`           | `=A1+B1`, `=sum(A1:A4)` |
+
+### Expression Syntax
+
+- **Basic Operations**: Support standard mathematical operators (`+`, `-`, `*`, `/`).
+- **Text Literals**: Use double quotes (e.g., `="Hello"+"World"`).
+- **Cell References**: Direct (e.g., `A1`) or ranges (e.g., `A1:A4`).
+- **Range Limits**: Maximum 100 rows and columns.
 
 ### Built-in Functions
 
-1. **sum**  
-   Returns the sum of all numeric arguments.
-2. **product**  
-   Returns the product of all numeric arguments.
-3. **max**  
-   Returns the maximum value among the numeric arguments.
-4. **min**  
-   Returns the minimum value among the numeric arguments.
-5. **average**  
-   Returns the average (arithmetic mean) of numeric arguments.
-6. **count**  
-   Returns the count of numeric arguments.
-7. **length**  
-   Returns the length of a text argument.
-8. **if**  
-   Returns the second argument if the first argument evaluates to `true`, otherwise returns the third argument.
-9. **round**  
-   Rounds a single numeric argument to the nearest whole number.
-10. **pow**  
-    Returns the first numeric argument raised to the power of the second numeric argument.
+#### Mathematical Functions
 
-# Build and Run
-You will need to have installed rustup and cargo for to build this project: [Install Rustup and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+- `sum(args...)`: Sum of numeric values.
+- `product(args...)`: Product of numeric values.
+- `average(args...)`: Arithmetic mean.
+- `max(args...)`: Maximum value.
+- `min(args...)`: Minimum value.
+- `pow(base, exponent)`: Power calculation.
+- `round(number)`: Round to nearest integer.
 
-## How to build an run for the web
-In the root folder of this project
+#### Utility Functions
 
-`cargo install basic-http-server`
+- `count(args...)`: Count numeric values.
+- `length(text)`: String length.
+- `if(condition, true_value, false_value)`: Conditional logic.
 
-`rustup target add wasm32-unknown-unknown`
+#### Function Usage Examples
 
-`cargo build --release --target wasm32-unknown-unknown && cp target/wasm32-unknown-unknown/release/mini_spreadsheet.wasm . && basic-http-server .`
+```xls
+= sum(A1:A4)           
+= average(1, 2, A1)    
+= if(A1>10, "High", "Low")  
+```
 
-## How to Build and Run Locally (as a Desktop App)
-In the root folder of this project
-
-`cargo run`
