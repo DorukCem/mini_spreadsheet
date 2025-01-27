@@ -1,4 +1,5 @@
 pub mod common_types;
+pub mod common_functions;
 
 use gui::GUI;
 use spreadsheet::SpreadSheet;

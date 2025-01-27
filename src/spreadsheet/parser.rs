@@ -1,8 +1,7 @@
 use ast_creator::{ASTCreateError, ASTCreator};
-use ast_resolver::ASTResolver;
 use tokenizer::ExpressionTokenizer;
 
-use crate::common_types::{ParseError, Token, Value};
+use crate::{common_functions::get_cell_idx, common_types::{ParseError, Token, Value}};
 
 use super::{Cell, Expression, Index, ParsedCell};
 
@@ -79,7 +78,7 @@ impl CellParser {
         let cells = tokens
             .iter()
             .filter_map(|x| match x {
-                Token::CellName(name) => ASTResolver::get_cell_idx(name),
+                Token::CellName(name) => get_cell_idx(name),
                 _ => None,
             })
             .collect();

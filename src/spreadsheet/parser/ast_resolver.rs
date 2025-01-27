@@ -1,6 +1,6 @@
 use builtin_functions::get_func;
 
-use crate::common_types::{ComputeError, Index, Token, Value, AST};
+use crate::{common_functions::get_cell_idx, common_types::{ComputeError, Index, Token, Value, AST}};
 mod builtin_functions;
 pub trait VarContext {
     fn get_variable(&self, index: Index) -> Option<Result<Value, ComputeError>>;
@@ -13,7 +13,7 @@ impl ASTResolver {
         match ast {
             AST::Value(value) => Ok(value.clone()),
             AST::CellName(name) => match variables.get_variable(
-                Self::get_cell_idx(name)
+                get_cell_idx(name)
                     .ok_or(ComputeError::ParseError("Invalid cell name".to_string()))?,
             ) {
                 Some(value) => value,
@@ -137,30 +137,11 @@ impl ASTResolver {
         }
     }
 
-    pub fn get_cell_idx(cell_name: &str) -> Option<Index> {
-        let mut x: usize = 0;
-        let mut y = 0;
-
-        for (i, c) in cell_name.chars().enumerate() {
-            if c.is_ascii_digit() {
-                // Parse row number
-                y = cell_name[i..].parse::<usize>().ok()?;
-                break;
-            } else {
-                // Parse column letters
-                x = x * 26 + (c as usize - 'A' as usize + 1);
-            }
-        }
-        if x == 0 || y == 0 {
-            return None;
-        }
-        // Adjust for 0-based indexing
-        Some(Index { x: x - 1, y: y - 1 })
-    }
+   
 
     fn range_to_indeces(from: &str, to: &str) -> Vec<Index> {
-        let start = Self::get_cell_idx(from).unwrap_or(Index{ x:0, y:0 });
-        let end = Self::get_cell_idx(to).unwrap_or(Index{ x:0, y:0 });
+        let start = get_cell_idx(from).unwrap_or(Index{ x:0, y:0 });
+        let end = get_cell_idx(to).unwrap_or(Index{ x:0, y:0 });
         let mut indices = Vec::new();
         for x in start.x..=end.x {
             for y in start.y..=end.y {
