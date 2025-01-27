@@ -79,7 +79,7 @@ impl CellParser {
         let cells = tokens
             .iter()
             .filter_map(|x| match x {
-                Token::CellName(name) => Some(ASTResolver::get_cell_idx(name)),
+                Token::CellName(name) => ASTResolver::get_cell_idx(name),
                 _ => None,
             })
             .collect();

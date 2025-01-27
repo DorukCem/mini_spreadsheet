@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-use crate::common_types::{Token, Value, AST};
+use crate::common_types::{Index, Token, Value, AST};
 
 pub struct ASTCreator<I>
 where
@@ -26,7 +26,11 @@ where
     }
 
     pub fn parse(&mut self) -> Result<crate::common_types::AST, ASTCreateError> {
-        let result = self.parse_expression(0);
+        let result = dbg!(self.parse_expression(0));
+        if result.is_err(){
+            return result
+        }
+
         if self.tokens.next().is_some() {
             // We have not parsed all tokens
             Err(ASTCreateError::UnexpectedToken)
@@ -45,6 +49,7 @@ where
             if precedence < min_precedence {
                 break;
             }
+
             self.tokens.next(); // Consume the operator
 
             // Handle unary NOT operator specially
@@ -72,20 +77,29 @@ where
             Some(Token::FunctionName(name)) => {
                 self.expect_token(Token::LParen)?;
                 let arguments = self.parse_function_arguements()?;
-                Ok(AST::FunctionCall {
-                    name,
-                    arguments,
-                })
+                Ok(AST::FunctionCall { name, arguments })
             }
             Some(Token::CellName(name)) => {
                 // Check if this might be the start of a range
                 if let Some(Token::Colon) = self.tokens.peek() {
                     self.tokens.next(); // consume colon
                     match self.tokens.next() {
-                        Some(Token::CellName(to_name)) => Ok(AST::Range {
-                            from: name,
-                            to: to_name,
-                        }),
+                        Some(Token::CellName(to_name)) => {
+                            let idx_from =
+                                get_cell_idx(&name).ok_or(ASTCreateError::InvalidRange)?;
+                            let idx_to =
+                                get_cell_idx(&to_name).ok_or(ASTCreateError::InvalidRange)?;
+                            if (idx_from.x.abs_diff(idx_to.x)) > 100
+                                || (idx_from.y.abs_diff(idx_to.y)) > 100
+                            {
+                                return Err(ASTCreateError::InvalidRange);
+                            }
+
+                            Ok(AST::Range {
+                                from: name,
+                                to: to_name,
+                            })
+                        }
                         _ => Err(ASTCreateError::InvalidRange),
                     }
                 } else {
@@ -164,6 +178,27 @@ where
 
         Ok(arguements)
     }
+}
+
+pub fn get_cell_idx(cell_name: &str) -> Option<Index> {
+    let mut x: usize = 0;
+    let mut y = 0;
+
+    for (i, c) in cell_name.chars().enumerate() {
+        if c.is_ascii_digit() {
+            // Parse row number
+            y = cell_name[i..].parse::<usize>().ok()?;
+            break;
+        } else {
+            // Parse column letters
+            x = x * 26 + (c as usize - 'A' as usize + 1);
+        }
+    }
+    if x == 0 || y == 0 {
+        return None;
+    }
+    // Adjust for 0-based indexing
+    Some(Index { x: x - 1, y: y - 1 })
 }
 
 #[cfg(test)]
@@ -692,17 +727,20 @@ mod tests {
     fn test_invalid_not_operator() {
         let tokens = vec![Token::Not];
         let mut parser = ASTCreator::new(tokens.into_iter());
-        assert!(matches!(parser.parse(), Err(ASTCreateError::UnexpectedToken)));
+        assert!(matches!(
+            parser.parse(),
+            Err(ASTCreateError::UnexpectedToken)
+        ));
     }
 
     #[test]
     fn test_invalid_comparison() {
-        let tokens = vec![
-            Token::CellName("A1".to_string()),
-            Token::GreaterThan,
-        ];
+        let tokens = vec![Token::CellName("A1".to_string()), Token::GreaterThan];
         let mut parser = ASTCreator::new(tokens.into_iter());
-        assert!(matches!(parser.parse(), Err(ASTCreateError::UnexpectedToken)));
+        assert!(matches!(
+            parser.parse(),
+            Err(ASTCreateError::UnexpectedToken)
+        ));
     }
 
     #[test]
@@ -728,5 +766,21 @@ mod tests {
                 right: Box::new(AST::Value(Value::Number(10.0))),
             }
         );
+    }
+
+    #[test]
+    fn test_invalid_range() {
+        let tokens = vec![
+            Token::FunctionName("sum".to_string()),
+            Token::LParen,
+            Token::CellName("A1".to_string()),
+            Token::Colon,
+            Token::Number(10.0),
+            Token::RParen,
+        ];
+        let mut parser = ASTCreator::new(tokens.into_iter());
+        let result = parser.parse();
+        dbg!(&result);
+        assert!(matches!(result, Err(ASTCreateError::InvalidRange)));
     }
 }

@@ -1,6 +1,6 @@
+use macroquad::prelude::*;
 use macroquad::ui::widgets::InputText;
 use macroquad::ui::{hash, root_ui, Skin};
-use macroquad::prelude::*;
 
 use crate::common_types::{ComputeError, Value};
 use crate::{common_types::Index, spreadsheet::SpreadSheet};
@@ -92,7 +92,7 @@ impl GUI {
 
         loop {
             clear_background(BACKGROUND_COLOR);
-
+            
             self.draw_editor();
             self.draw_cells(
                 (0.0, EDITOR_WINDOW_HEIGHT),
@@ -235,8 +235,24 @@ impl GUI {
         if let Some(idx) = hovered {
             let cell_end_x = start_x + idx.x as f32 * cell_width + ROW_LABEL_WIDTH + cell_width;
             let cell_end_y = start_y + idx.y as f32 * cell_height + COL_LABEL_HEIGHT;
-            let dialog_pos = (cell_end_x, cell_end_y);
-            self.draw_dialog(idx, dialog_pos, cell_width, cell_height);
+            let cell_start_x = start_x + idx.x as f32 * cell_width + ROW_LABEL_WIDTH + cell_width;
+            if cell_end_x > screen_width() / 2.0 {
+                self.draw_dialog(
+                    idx,
+                    (cell_start_x, cell_end_y),
+                    cell_width,
+                    cell_height,
+                    true,
+                );
+            } else {
+                self.draw_dialog(
+                    idx,
+                    (cell_end_x, cell_end_y),
+                    cell_width,
+                    cell_height,
+                    false,
+                );
+            }
         }
     }
 
@@ -314,7 +330,9 @@ impl GUI {
                 },
             );
 
-            if is_oversize && is_point_in_rect(mouse_position(), start, (start.0 + width, start.1 + height)) {
+            if is_oversize
+                && is_point_in_rect(mouse_position(), start, (start.0 + width, start.1 + height))
+            {
                 self.draw_oversize_label(original, center_x, center_y)
             }
         }
@@ -408,14 +426,28 @@ impl GUI {
         self.selected_cell = Some(idx);
     }
 
-    fn draw_dialog(&self, idx: Index, pos: (f32, f32), cell_width: f32, cell_height: f32) {
+    fn draw_dialog(
+        &self,
+        idx: Index,
+        pos: (f32, f32),
+        cell_width: f32,
+        cell_height: f32,
+        reverse: bool,
+    ) {
         if let Some(err) = self.spread_sheet.get_error(idx) {
             let dialog_width: f32 = cell_width;
             let dialog_height: f32 = cell_height * 2.0;
             const DIALOG_FONT_SIZE: u16 = 14;
-
-            let (dialog_x, dialog_y) = pos;
-
+    
+            // Determine the position of the dialog box based on `reverse`
+            let (base_x, base_y) = pos;
+            let dialog_x = if reverse {
+                base_x - dialog_width * 2.0 // Move left if reverse is true
+            } else {
+                base_x
+            };
+            let dialog_y = base_y;
+    
             // Draw dialog background
             draw_rectangle(
                 dialog_x,
@@ -425,27 +457,27 @@ impl GUI {
                 GRID_BACKGROUND_COLOR,
             );
             draw_rectangle_lines(dialog_x, dialog_y, dialog_width, dialog_height, 4.0, RED);
-
+    
             // Prepare dialog text
             let dialog_text = format!("Error: {}", err_to_info(err));
-
+    
             let lines = split_into_lines(
                 &dialog_text,
                 &self.regular_font,
                 DIALOG_FONT_SIZE,
                 dialog_width - 10.0,
             );
-
+    
             // Calculate vertical starting position for centering the text block
             let total_text_height = lines.len() as f32 * (DIALOG_FONT_SIZE as f32 + 4.0); // 4.0 for line spacing
-            let mut text_y = dialog_y + (dialog_height - total_text_height) / 2.0;
-
+            let mut text_y = dialog_y + (dialog_height - total_text_height) / 2.0 + 5.;
+    
             // Draw each line of text
             for line in lines {
                 let text_dimensions =
                     measure_text(&line, Some(&self.bold_font), DIALOG_FONT_SIZE, 1.0);
                 let text_x = dialog_x + (dialog_width - text_dimensions.width) / 2.0;
-
+    
                 draw_text_ex(
                     &line,
                     text_x,
@@ -459,21 +491,25 @@ impl GUI {
                         color: BLACK,
                     },
                 );
-
+    
                 text_y += DIALOG_FONT_SIZE as f32 + 4.0; // Move to next line
             }
         }
     }
+    
 
     fn draw_oversize_label(&self, original: String, center_x: f32, center_y: f32) {
         const LINE_SIZE: f32 = 50.0;
         const LABEL_PADDING: f32 = 20.0;
 
-        let (line_end_x, line_end_y) = match (center_x> screen_width()/2.0 , center_y> screen_height()/2.0){
+        let (line_end_x, line_end_y) = match (
+            center_x > screen_width() / 2.0,
+            center_y > screen_height() / 2.0,
+        ) {
             (true, true) => (center_x - LINE_SIZE, center_y - LINE_SIZE),
-            (true, false) =>(center_x - LINE_SIZE, center_y + LINE_SIZE),
-            (false, true) =>(center_x + LINE_SIZE, center_y - LINE_SIZE),
-            (false, false) =>(center_x + LINE_SIZE, center_y + LINE_SIZE),
+            (true, false) => (center_x - LINE_SIZE, center_y + LINE_SIZE),
+            (false, true) => (center_x + LINE_SIZE, center_y - LINE_SIZE),
+            (false, false) => (center_x + LINE_SIZE, center_y + LINE_SIZE),
         };
 
         draw_line(center_x, center_y, line_end_x, line_end_y, 2.0, BLACK);

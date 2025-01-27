@@ -12,7 +12,10 @@ impl ASTResolver {
     pub fn resolve(ast: &AST, variables: &dyn VarContext) -> Result<Value, ComputeError> {
         match ast {
             AST::Value(value) => Ok(value.clone()),
-            AST::CellName(name) => match variables.get_variable(Self::get_cell_idx(name)) {
+            AST::CellName(name) => match variables.get_variable(
+                Self::get_cell_idx(name)
+                    .ok_or(ComputeError::ParseError("Invalid cell name".to_string()))?,
+            ) {
                 Some(value) => value,
                 None => Err(ComputeError::UnfindableReference(format!(
                     "Could not find variable {name} with in context"
@@ -72,7 +75,8 @@ impl ASTResolver {
                         left_resolved
                             .greater_equals(right_resolved)
                             .ok_or(ComputeError::TypeError(
-                                "Greater or equal comparison requires two numeric values".to_string(),
+                                "Greater or equal comparison requires two numeric values"
+                                    .to_string(),
                             ))
                     }
                     Token::LessEquals => {
@@ -95,9 +99,9 @@ impl ASTResolver {
                     other => panic!("{other:?} is not a binary operator"),
                 }
             }
-            AST::Range { from: _, to: _ } => {
-                Err(ComputeError::TypeError("Ranges can only appear as function arguments".to_owned()))
-            }
+            AST::Range { from: _, to: _ } => Err(ComputeError::TypeError(
+                "Ranges can only appear as function arguments".to_owned(),
+            )),
 
             AST::FunctionCall { name, arguments } => {
                 let mut resolved_args = Vec::new();
@@ -125,34 +129,38 @@ impl ASTResolver {
                 if let Value::Bool(boolean) = Self::resolve(expr, variables)? {
                     Ok(Value::Bool(!boolean))
                 } else {
-                    Err(ComputeError::TypeError("Not(!) operator can only work on boolean expressions".to_owned()))
+                    Err(ComputeError::TypeError(
+                        "Not(!) operator can only work on boolean expressions".to_owned(),
+                    ))
                 }
             }
         }
     }
 
-    pub fn get_cell_idx(cell_name: &str) -> Index {
+    pub fn get_cell_idx(cell_name: &str) -> Option<Index> {
         let mut x: usize = 0;
         let mut y = 0;
 
         for (i, c) in cell_name.chars().enumerate() {
             if c.is_ascii_digit() {
                 // Parse row number
-                y = cell_name[i..].parse::<usize>().expect("Invalid row number");
+                y = cell_name[i..].parse::<usize>().ok()?;
                 break;
             } else {
                 // Parse column letters
                 x = x * 26 + (c as usize - 'A' as usize + 1);
             }
         }
-
+        if x == 0 || y == 0 {
+            return None;
+        }
         // Adjust for 0-based indexing
-        Index { x: x - 1, y: y - 1 }
+        Some(Index { x: x - 1, y: y - 1 })
     }
 
     fn range_to_indeces(from: &str, to: &str) -> Vec<Index> {
-        let start = Self::get_cell_idx(from);
-        let end = Self::get_cell_idx(to);
+        let start = Self::get_cell_idx(from).unwrap_or(Index{ x:0, y:0 });
+        let end = Self::get_cell_idx(to).unwrap_or(Index{ x:0, y:0 });
         let mut indices = Vec::new();
         for x in start.x..=end.x {
             for y in start.y..=end.y {

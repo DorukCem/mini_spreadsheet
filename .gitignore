@@ -1,2 +1,3 @@
 /target
-mini_spreadsheet.wasm
+*.wasm
+deploy.zip

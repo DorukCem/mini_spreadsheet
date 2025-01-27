@@ -18,7 +18,7 @@ Boolean, number, and text are value types which can be the final value of a cell
 Expressions evaluate to a value type or an error. Errors may arise from unparsable expressions (such as = 1  2), invalid operations (such as trying to add text to a number), etc. Text literals may be used in expressions using double quotes, such as = "hello" + "world". 
 
 ### Ranges
-Range expressions may appear inside of function calls in this `FROM_CELL : TO_CELL` form. They can be used to operate on a range of cells. For example: `=sum(A1:A4)` would sum the first 4 elements of the first column.
+Range expressions may appear inside of function calls in this `FROM_CELL : TO_CELL` form. They can be used to operate on a range of cells. For example: `=sum(A1:A4)` would sum the first 4 elements of the first column. Range expressions are invalid after a certain size (100 rows and columns for now);
 
 ### Functions
 Functions perform a single action and evaluate to a result. They may take arguments separated by commas. Some functions may require a specific number of arguments, while others can take any number of arguments (for example, we can say sum(1, 2, A1:C5)). Functions always start with lowercase letters. 
