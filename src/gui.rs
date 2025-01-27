@@ -246,7 +246,6 @@ impl GUI {
                     (cell_start_x, cell_end_y),
                     cell_width,
                     cell_height,
-                    true,
                 );
             } else {
                 self.draw_dialog(
@@ -254,7 +253,6 @@ impl GUI {
                     (cell_end_x, cell_end_y),
                     cell_width,
                     cell_height,
-                    false,
                 );
             }
         }
@@ -337,7 +335,9 @@ impl GUI {
             if is_oversize
                 && is_point_in_rect(mouse_position(), start, (start.0 + width, start.1 + height))
             {
-                self.draws.push(Box::new(move |x| Self::draw_oversize_label(x, original.clone(), center_x, center_y)));
+                self.draws.push(Box::new(move |x| {
+                    Self::draw_oversize_label(x, original.clone(), center_x, center_y)
+                }));
             }
         }
     }
@@ -430,28 +430,27 @@ impl GUI {
         self.selected_cell = Some(idx);
     }
 
-    fn draw_dialog(
-        &self,
-        idx: Index,
-        pos: (f32, f32),
-        cell_width: f32,
-        cell_height: f32,
-        reverse: bool,
-    ) {
+    fn draw_dialog(&self, idx: Index, pos: (f32, f32), cell_width: f32, cell_height: f32) {
         if let Some(err) = self.spread_sheet.get_error(idx) {
             let dialog_width: f32 = cell_width;
             let dialog_height: f32 = cell_height * 2.0;
             const DIALOG_FONT_SIZE: u16 = 14;
 
+            let reverse_x = pos.0 > screen_width() / 2.0;
+            let reverse_y = pos.1 > screen_height() / 2.0;
+
             // Determine the position of the dialog box based on `reverse`
             let (base_x, base_y) = pos;
-            let dialog_x = if reverse {
+            let dialog_x = if reverse_x {
                 base_x - dialog_width * 2.0 // Move left if reverse is true
             } else {
                 base_x
             };
-            let dialog_y = base_y;
-
+            let dialog_y = if reverse_y {
+                base_y - dialog_height // Move left if reverse is true
+            } else {
+                base_y
+            };
             // Draw dialog background
             draw_rectangle(
                 dialog_x,
@@ -479,7 +478,7 @@ impl GUI {
             // Draw each line of text
             for line in lines {
                 let text_dimensions =
-                    measure_text(&line, Some(&self.bold_font), DIALOG_FONT_SIZE, 1.0);
+                    measure_text(&line, Some(&self.regular_font), DIALOG_FONT_SIZE, 1.0);
                 let text_x = dialog_x + (dialog_width - text_dimensions.width) / 2.0;
 
                 draw_text_ex(
@@ -487,7 +486,7 @@ impl GUI {
                     text_x,
                     text_y,
                     TextParams {
-                        font: Some(&self.bold_font),
+                        font: Some(&self.regular_font),
                         font_size: DIALOG_FONT_SIZE,
                         font_scale: 1.0,
                         font_scale_aspect: 1.0,
