@@ -14,4 +14,3 @@ async fn main() {
     let mut gui = GUI::new(spread_sheet).await;
     gui.start().await;
 }
-// draw order, info_label z index

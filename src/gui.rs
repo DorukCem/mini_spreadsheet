@@ -46,6 +46,7 @@ pub struct GUI {
     bold_font: Font,
     spread_sheet: SpreadSheet,
     editor_skin: Skin,
+    draws: Vec<Box<dyn FnMut(&mut Self)>>,
 }
 
 impl GUI {
@@ -84,6 +85,7 @@ impl GUI {
             spread_sheet,
             bold_font,
             editor_skin,
+            draws: Vec::new(),
         }
     }
 
@@ -92,13 +94,15 @@ impl GUI {
 
         loop {
             clear_background(BACKGROUND_COLOR);
-            
+
             self.draw_editor();
             self.draw_cells(
                 (0.0, EDITOR_WINDOW_HEIGHT),
                 (screen_width(), screen_height()),
             );
-
+            while let Some(mut closure) = self.draws.pop() {
+                closure(self)
+            }
             next_frame().await
         }
     }
@@ -256,7 +260,7 @@ impl GUI {
         }
     }
 
-    fn draw_cell(&self, index: Index, start: (f32, f32), dimensions: (f32, f32)) {
+    fn draw_cell(&mut self, index: Index, start: (f32, f32), dimensions: (f32, f32)) {
         let (start_x, start_y) = start;
         let (width, height) = dimensions;
 
@@ -333,7 +337,7 @@ impl GUI {
             if is_oversize
                 && is_point_in_rect(mouse_position(), start, (start.0 + width, start.1 + height))
             {
-                self.draw_oversize_label(original, center_x, center_y)
+                self.draws.push(Box::new(move |x| Self::draw_oversize_label(x, original.clone(), center_x, center_y)));
             }
         }
     }
@@ -438,7 +442,7 @@ impl GUI {
             let dialog_width: f32 = cell_width;
             let dialog_height: f32 = cell_height * 2.0;
             const DIALOG_FONT_SIZE: u16 = 14;
-    
+
             // Determine the position of the dialog box based on `reverse`
             let (base_x, base_y) = pos;
             let dialog_x = if reverse {
@@ -447,7 +451,7 @@ impl GUI {
                 base_x
             };
             let dialog_y = base_y;
-    
+
             // Draw dialog background
             draw_rectangle(
                 dialog_x,
@@ -457,27 +461,27 @@ impl GUI {
                 GRID_BACKGROUND_COLOR,
             );
             draw_rectangle_lines(dialog_x, dialog_y, dialog_width, dialog_height, 4.0, RED);
-    
+
             // Prepare dialog text
             let dialog_text = format!("Error: {}", err_to_info(err));
-    
+
             let lines = split_into_lines(
                 &dialog_text,
                 &self.regular_font,
                 DIALOG_FONT_SIZE,
                 dialog_width - 10.0,
             );
-    
+
             // Calculate vertical starting position for centering the text block
             let total_text_height = lines.len() as f32 * (DIALOG_FONT_SIZE as f32 + 4.0); // 4.0 for line spacing
             let mut text_y = dialog_y + (dialog_height - total_text_height) / 2.0 + 5.;
-    
+
             // Draw each line of text
             for line in lines {
                 let text_dimensions =
                     measure_text(&line, Some(&self.bold_font), DIALOG_FONT_SIZE, 1.0);
                 let text_x = dialog_x + (dialog_width - text_dimensions.width) / 2.0;
-    
+
                 draw_text_ex(
                     &line,
                     text_x,
@@ -491,12 +495,11 @@ impl GUI {
                         color: BLACK,
                     },
                 );
-    
+
                 text_y += DIALOG_FONT_SIZE as f32 + 4.0; // Move to next line
             }
         }
     }
-    
 
     fn draw_oversize_label(&self, original: String, center_x: f32, center_y: f32) {
         const LINE_SIZE: f32 = 50.0;
