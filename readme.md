@@ -1,94 +1,26 @@
-# Mini Spreadsheet
+## How it Works
 
-A lightweight spreadsheet application supporting basic calculations, functions, and cell references.
+### Parsing Cells
+When a cell is filled with an input string, we must [parse](https://en.wikipedia.org/wiki/Parsing) the string to make sense of it. To do this, we first break the string into tokens by [tokenizing](https://en.wikipedia.org/wiki/Lexical_analysis) it. For example, an expression such as `= sum(1,2)` would be converted into something like: `[function_name("sum"), l_paran, number(1), comma, number(2), r_paran]`. Unlike the input string, these tokens represent a type inside the program, which makes it possible to reason and work with them. Then, we must create an [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree) to compute the final value of the expression.
 
-## Quick Start
+Once we compute the AST of a cell, we keep it in memory for future use. This way, if a cell needs to be computed again, we can skip parsing it.
 
-### Try it online !!
+It must also be noted that while parsing a cell, we also determine which cells it references. We can then use this information to construct the computation graph, which will be explained below.
 
-You can try out Mini Spreadsheet online at: [https://dorukcem.itch.io/mini-spreadsheet](https://dorukcem.itch.io/mini-spreadsheet)
+### Computation Order
+It is important to determine the order of computation. For example, let’s say that cell B has an expression in it, such as `= A1 + 2`. It is clear that we need the value of A1 to compute B. Therefore, the computation of A1 *must* come before the computation of B. This also means that if, for any reason, the value of A1 changes later on, we must update its dependents accordingly (in this case, B). To achieve this, we need to construct a [directed graph](https://en.wikipedia.org/wiki/Directed_graph) where we can see which nodes allow the computation of others.
 
-### Build and run it yourself
+Any time a cell is added, removed, or mutated in the application, we must update the graph. For example, if cell A2 is added with a reference to B1, that means that B1 allows the computation of A2. Therefore, we must add an edge going from B1 to A2.  
 
-#### Prerequisites
+![Example graph](images/graph.png)
 
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-- [rustup](https://rustup.rs/)
+In this example, we can clearly see that if we start the computation from cell C1, we will not encounter any reference errors. While it is somewhat easy to determine where computation should start and how it should propagate in small graphs, we need an algorithm to figure out the computation order in a generic directed graph. For that, we will need to [topologically sort the graph](https://en.wikipedia.org/wiki/Topological_sorting). Once we have the topological sorting of the graph, we can compute all cells in the order of that sorting.
 
-#### Building from Source
+We can also see in the example that if B1 changes, we must re-compute A3 and A2 according to the new value of B1.
 
-1. Clone the repository.
-2. Follow either the web or desktop build instructions below.
+### Cyclic References
 
+![Example graph 2](images/graph2.png)
 
-#### Web Version
-
-```bash
-# Install dependencies
-cargo install basic-http-server
-rustup target add wasm32-unknown-unknown
-
-# Build and run
-cargo build --release --target wasm32-unknown-unknown
-cp target/wasm32-unknown-unknown/release/mini_spreadsheet.wasm .
-basic-http-server .
-```
-
-#### Desktop Version
-
-```bash
-cargo run
-```
-
-## Usage Guide
-
-### Basic Interface
-
-- **Cell Editing**: Click any cell to edit its contents.
-- **Cell References**: Hold Ctrl and click a cell to reference it in expressions (e.g., `A1`).
-- **Content Overflow**: Hover over truncated cells to view full contents.
-- **Error Handling**: Hover over errors for detailed descriptions.
-
-### Data Types
-
-| Type       | Description                         | Examples                |
-| ---------- | ----------------------------------- | ----------------------- |
-| Text       | Plain text strings                  | `Hello`, `World`        |
-| Number     | Numeric values (integers or floats) | `42`, `3.14`, `1e-6`    |
-| Boolean    | True/false values                   | `TRUE`, `FALSE`         |
-| Expression | Formula starting with `=`           | `=A1+B1`, `=sum(A1:A4)` |
-
-### Expression Syntax
-
-- **Basic Operations**: Support standard mathematical operators (`+`, `-`, `*`, `/`).
-- **Text Literals**: Use double quotes (e.g., `="Hello"+"World"`).
-- **Cell References**: Direct (e.g., `A1`) or ranges (e.g., `A1:A4`).
-- **Range Limits**: Maximum 100 rows and columns.
-
-### Built-in Functions
-
-#### Mathematical Functions
-
-- `sum(args...)`: Sum of numeric values.
-- `product(args...)`: Product of numeric values.
-- `average(args...)`: Arithmetic mean.
-- `max(args...)`: Maximum value.
-- `min(args...)`: Minimum value.
-- `pow(base, exponent)`: Power calculation.
-- `round(number)`: Round to nearest integer.
-
-#### Utility Functions
-
-- `count(args...)`: Count numeric values.
-- `length(text)`: String length.
-- `if(condition, true_value, false_value)`: Conditional logic.
-
-#### Function Usage Examples
-
-```xls
-= sum(A1:A4)           
-= average(1, 2, A1)    
-= if(A1>10, "High", "Low")  
-```
+There are some cases where we cannot achieve an [acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph). In these cases, it is impossible to get a final result for the cells that form a cycle, and we must return an error instead. However, we do not want to get stuck in an infinite loop while computing the cells. To prevent this, we must [tweak](https://stackoverflow.com/questions/67644378/detecting-cycles-in-topological-sort-using-kahns-algorithm-in-degree-out-deg) the algorithm used for topological sorting to also return the cells that form a cycle. These cells will be excluded from the computation loop and marked as having a cycle.
 
