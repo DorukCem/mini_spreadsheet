@@ -760,7 +760,6 @@ mod tests {
         ];
         let mut parser = ASTCreator::new(tokens.into_iter());
         let result = parser.parse();
-        &result;
         assert!(matches!(result, Err(ASTCreateError::InvalidRange)));
     }
 }

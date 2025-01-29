@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use macroquad::ui::widgets::{Editbox, InputText};
+use macroquad::ui::widgets::Editbox;
 use macroquad::ui::{hash, root_ui, Skin};
 
 use crate::common_types::{ComputeError, Value};
