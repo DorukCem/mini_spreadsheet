@@ -26,7 +26,7 @@ where
     }
 
     pub fn parse(&mut self) -> Result<crate::common_types::AST, ASTCreateError> {
-        let result = dbg!(self.parse_expression(0));
+        let result = self.parse_expression(0);
         if result.is_err(){
             return result
         }
@@ -760,7 +760,7 @@ mod tests {
         ];
         let mut parser = ASTCreator::new(tokens.into_iter());
         let result = parser.parse();
-        dbg!(&result);
+        &result;
         assert!(matches!(result, Err(ASTCreateError::InvalidRange)));
     }
 }

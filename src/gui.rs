@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use macroquad::ui::widgets::InputText;
+use macroquad::ui::widgets::{Editbox, InputText};
 use macroquad::ui::{hash, root_ui, Skin};
 
 use crate::common_types::{ComputeError, Value};
@@ -118,10 +118,8 @@ impl GUI {
             vec2(screen_width(), EDITOR_WINDOW_HEIGHT),
             |ui| {
                 let input_text_id = hash!();
-                InputText::new(input_text_id)
-                    .label("")
+                Editbox::new(input_text_id, vec2(screen_width() - ROW_LABEL_WIDTH * 2.0, EDITOR_HEIGHT))
                     .position(vec2(ROW_LABEL_WIDTH, EDITOR_TOP_MARGIN + EDITOR_PADDING))
-                    .size(vec2(screen_width() - ROW_LABEL_WIDTH * 2.0, EDITOR_HEIGHT))
                     .ui(ui, &mut self.editor_content);
 
                 // Focus the editor when a cell is selected
